@@ -70,7 +70,7 @@ jobs:
       # 4. SonarCloud Security Scan
       # ========================================
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         env:
           # GITHUB_TOKEN: Token bawaan GitHub Actions (otomatis tersedia)
           # Digunakan untuk integrasi dengan GitHub (komentar PR, status checks)
@@ -80,6 +80,9 @@ jobs:
           # HARUS disimpan sebagai GitHub Secret (Settings > Secrets > Actions)
           # JANGAN PERNAH hardcode token ini di file!
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          
+          # SONAR_HOST_URL: URL SonarCloud
+          SONAR_HOST_URL: https://sonarcloud.io
         with:
           # Pass configuration melalui arguments (lebih aman dari secrets)
           args: >
