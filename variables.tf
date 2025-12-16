@@ -72,7 +72,7 @@ variable "db_engine_version" {
 variable "management_ip" {
   description = "IP address allowed for SSH access to ML node (your public IP)"
   type        = string
-  default     = "0.0.0.0/0"  # CHANGE THIS to your public IP for better security
+  default     = "0.0.0.0/0" # CHANGE THIS to your public IP for better security
 }
 
 # VPC Configuration

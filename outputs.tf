@@ -119,23 +119,23 @@ output "connection_info" {
   description = "Summary of connection information"
   value = {
     service_node = {
-      public_ip  = digitalocean_droplet.service_node.ipv4_address
-      private_ip = digitalocean_droplet.service_node.ipv4_address_private
-      ssh        = "ssh root@${digitalocean_droplet.service_node.ipv4_address}"
+      public_ip   = digitalocean_droplet.service_node.ipv4_address
+      private_ip  = digitalocean_droplet.service_node.ipv4_address_private
+      ssh         = "ssh root@${digitalocean_droplet.service_node.ipv4_address}"
       user_access = "ssh simut@${digitalocean_droplet.service_node.ipv4_address} (password: simut123)"
     }
     ml_node = {
-      public_ip  = digitalocean_droplet.ml_node.ipv4_address
-      private_ip = digitalocean_droplet.ml_node.ipv4_address_private
-      ssh        = "ssh root@${digitalocean_droplet.ml_node.ipv4_address}"
+      public_ip   = digitalocean_droplet.ml_node.ipv4_address
+      private_ip  = digitalocean_droplet.ml_node.ipv4_address_private
+      ssh         = "ssh root@${digitalocean_droplet.ml_node.ipv4_address}"
       user_access = "ssh simut@${digitalocean_droplet.ml_node.ipv4_address} (password: simut123)"
     }
     database = {
-      host         = digitalocean_database_cluster.postgres.private_host
-      port         = digitalocean_database_cluster.postgres.port
-      database     = digitalocean_database_db.simut_database.name
-      user         = digitalocean_database_user.simut_user.name
-      access_info  = "Username: simut, Password: [use terraform output postgres_password to view]"
+      host        = digitalocean_database_cluster.postgres.private_host
+      port        = digitalocean_database_cluster.postgres.port
+      database    = digitalocean_database_db.simut_database.name
+      user        = digitalocean_database_user.simut_user.name
+      access_info = "Username: simut, Password: [use terraform output postgres_password to view]"
     }
   }
 }
@@ -145,7 +145,7 @@ output "connection_info" {
 # ====================================================================
 output "quick_start" {
   description = "Quick start commands and information"
-  value = <<-EOT
+  value       = <<-EOT
     
     🚀 SIMUT Infrastructure Deployed Successfully!
     

@@ -5,7 +5,7 @@ resource "digitalocean_vpc" "simut_vpc" {
   name     = var.vpc_name
   region   = var.region
   ip_range = var.vpc_cidr
-  
+
   description = "Private network for SIMUT infrastructure"
 }
 
@@ -84,7 +84,7 @@ locals {
     # Optional: System upgrade in background (won't interrupt SSH)
     nohup apt-get upgrade -y &
   EOF
-  
+
   # User data for ML Node (Droplet 2) - Python + FastAPI + Docker
   ml_node_user_data = <<-EOF
     #!/bin/bash
@@ -159,15 +159,15 @@ resource "digitalocean_droplet" "service_node" {
   region   = var.region
   size     = var.droplet_size
   vpc_uuid = digitalocean_vpc.simut_vpc.id
-  
+
   ssh_keys = [
     data.digitalocean_ssh_key.key_terraform.id
   ]
-  
+
   user_data = local.service_node_user_data
-  
+
   tags = ["service-node", "public-facing"]
-  
+
   # Enable monitoring
   monitoring = true
 }
@@ -181,15 +181,15 @@ resource "digitalocean_droplet" "ml_node" {
   region   = var.region
   size     = var.droplet_size
   vpc_uuid = digitalocean_vpc.simut_vpc.id
-  
+
   ssh_keys = [
     data.digitalocean_ssh_key.key_terraform.id
   ]
-  
+
   user_data = local.ml_node_user_data
-  
+
   tags = ["ml-node", "private"]
-  
+
   # Enable monitoring
   monitoring = true
 }
@@ -204,9 +204,9 @@ resource "digitalocean_database_cluster" "postgres" {
   size       = var.db_size
   region     = var.region
   node_count = 1
-  
+
   private_network_uuid = digitalocean_vpc.simut_vpc.id
-  
+
   tags = ["database", "postgres"]
 }
 
@@ -225,13 +225,13 @@ resource "digitalocean_database_db" "simut_database" {
 # Database Firewall - Allow only from Service Node and ML Node via private network
 resource "digitalocean_database_firewall" "postgres_firewall" {
   cluster_id = digitalocean_database_cluster.postgres.id
-  
+
   # Allow from Service Node
   rule {
     type  = "droplet"
     value = digitalocean_droplet.service_node.id
   }
-  
+
   # Allow from ML Node
   rule {
     type  = "droplet"
@@ -244,54 +244,54 @@ resource "digitalocean_database_firewall" "postgres_firewall" {
 # ====================================================================
 resource "digitalocean_firewall" "service_node_firewall" {
   name = "service-node-firewall"
-  
+
   droplet_ids = [digitalocean_droplet.service_node.id]
-  
+
   # Inbound Rules
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   inbound_rule {
     protocol         = "tcp"
     port_range       = "80"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   inbound_rule {
     protocol         = "tcp"
     port_range       = "443"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   # Allow all traffic from VPC (for internal communication)
   inbound_rule {
     protocol         = "tcp"
     port_range       = "1-65535"
     source_addresses = [var.vpc_cidr]
   }
-  
+
   inbound_rule {
     protocol         = "udp"
     port_range       = "1-65535"
     source_addresses = [var.vpc_cidr]
   }
-  
+
   # Outbound Rules - Allow all
   outbound_rule {
     protocol              = "tcp"
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   outbound_rule {
     protocol              = "udp"
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   outbound_rule {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
@@ -303,9 +303,9 @@ resource "digitalocean_firewall" "service_node_firewall" {
 # ====================================================================
 resource "digitalocean_firewall" "ml_node_firewall" {
   name = "ml-node-firewall"
-  
+
   droplet_ids = [digitalocean_droplet.ml_node.id]
-  
+
   # Inbound Rules
   # SSH from management IP (your IP or anywhere for now)
   inbound_rule {
@@ -313,38 +313,38 @@ resource "digitalocean_firewall" "ml_node_firewall" {
     port_range       = "22"
     source_addresses = [var.management_ip]
   }
-  
+
   # Allow all traffic from Service Node via VPC
   inbound_rule {
     protocol         = "tcp"
     port_range       = "1-65535"
     source_addresses = [var.vpc_cidr]
   }
-  
+
   inbound_rule {
     protocol         = "udp"
     port_range       = "1-65535"
     source_addresses = [var.vpc_cidr]
   }
-  
+
   inbound_rule {
     protocol         = "icmp"
     source_addresses = [var.vpc_cidr]
   }
-  
+
   # Outbound Rules - Allow all (for package updates)
   outbound_rule {
     protocol              = "tcp"
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   outbound_rule {
     protocol              = "udp"
     port_range            = "1-65535"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-  
+
   outbound_rule {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
