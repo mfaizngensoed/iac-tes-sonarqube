@@ -1,0 +1,118 @@
+name: Terraform SonarCloud Security Scan
+
+# Trigger workflow pada push ke branch utama dan pull request
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+  
+  # Opsional: Bisa juga dijalankan manual
+  workflow_dispatch:
+
+# Permissions yang dibutuhkan (principle of least privilege)
+permissions:
+  contents: read
+  pull-requests: write  # Untuk menulis komentar di PR jika perlu
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Security Analysis
+    runs-on: ubuntu-latest
+    
+    # Environment variables yang aman
+    env:
+      TERRAFORM_VERSION: '1.9.0'
+    
+    steps:
+      # ========================================
+      # 1. Checkout Repository
+      # ========================================
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 sangat penting untuk SonarCloud
+          # Agar bisa mendeteksi "New Code" dan melakukan git blame
+          fetch-depth: 0
+          
+      # ========================================
+      # 2. Setup Terraform
+      # ========================================
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      
+      # ========================================
+      # 3. Terraform Security Checks
+      # ========================================
+      # Validasi format code
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+      
+      # Initialize Terraform (tanpa backend remote untuk keamanan)
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend=false
+        continue-on-error: true
+      
+      # Validasi syntax dan konfigurasi
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        continue-on-error: true
+      
+      # ========================================
+      # 4. SonarCloud Security Scan
+      # ========================================
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          # GITHUB_TOKEN: Token bawaan GitHub Actions (otomatis tersedia)
+          # Digunakan untuk integrasi dengan GitHub (komentar PR, status checks)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+          # SONAR_TOKEN: Token rahasia SonarCloud
+          # HARUS disimpan sebagai GitHub Secret (Settings > Secrets > Actions)
+          # JANGAN PERNAH hardcode token ini di file!
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # Pass configuration melalui arguments (lebih aman dari secrets)
+          args: >
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.projectName=${{ secrets.SONAR_PROJECT_NAME }}
+            -Dsonar.verbose=false
+            
+      # ========================================
+      # 5. Quality Gate Check
+      # ========================================
+      - name: Check SonarCloud Quality Gate
+        id: sonarcloud-quality-gate
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        # Fail pipeline jika Quality Gate tidak lulus
+        continue-on-error: false
+      
+      # ========================================
+      # 6. Report Status
+      # ========================================
+      - name: Report Scan Results
+        if: always()
+        run: |
+          echo "### 🔍 Terraform Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Format | ${{ steps.fmt.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Init | ${{ steps.init.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Validate | ${{ steps.validate.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SonarCloud Quality Gate | ${{ steps.sonarcloud-quality-gate.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [View detailed report on SonarCloud](https://sonarcloud.io/dashboard?id=${{ secrets.SONAR_PROJECT_KEY }})" >> $GITHUB_STEP_SUMMARY
