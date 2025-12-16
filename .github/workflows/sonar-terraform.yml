@@ -104,7 +104,39 @@ jobs:
         continue-on-error: false
       
       # ========================================
-      # 6. Report Status
+      # 6. Fetch SonarCloud Metrics (Complexity Analysis)
+      # ========================================
+      - name: Get SonarCloud Complexity Metrics
+        if: always()
+        id: sonar-metrics
+        continue-on-error: true
+        run: |
+          # Fetch metrics dari SonarCloud API
+          METRICS="complexity,cognitive_complexity,code_smells,bugs,vulnerabilities,security_hotspots,coverage,duplicated_lines_density"
+          
+          RESPONSE=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
+            "https://sonarcloud.io/api/measures/component?component=${{ secrets.SONAR_PROJECT_KEY }}&metricKeys=${METRICS}")
+          
+          # Parse JSON response dan extract values
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Extract individual metrics
+          COMPLEXITY=$(echo "$RESPONSE" | grep -o '"complexity".*"value":"[^"]*"' | grep -o '[0-9.]*' | head -1)
+          COGNITIVE=$(echo "$RESPONSE" | grep -o '"cognitive_complexity".*"value":"[^"]*"' | grep -o '[0-9.]*' | head -1)
+          BUGS=$(echo "$RESPONSE" | grep -o '"bugs".*"value":"[^"]*"' | grep -o '[0-9.]*' | head -1)
+          VULNERABILITIES=$(echo "$RESPONSE" | grep -o '"vulnerabilities".*"value":"[^"]*"' | grep -o '[0-9.]*' | head -1)
+          CODE_SMELLS=$(echo "$RESPONSE" | grep -o '"code_smells".*"value":"[^"]*"' | grep -o '[0-9.]*' | head -1)
+          
+          echo "complexity=${COMPLEXITY:-0}" >> $GITHUB_OUTPUT
+          echo "cognitive_complexity=${COGNITIVE:-0}" >> $GITHUB_OUTPUT
+          echo "bugs=${BUGS:-0}" >> $GITHUB_OUTPUT
+          echo "vulnerabilities=${VULNERABILITIES:-0}" >> $GITHUB_OUTPUT
+          echo "code_smells=${CODE_SMELLS:-0}" >> $GITHUB_OUTPUT
+      
+      # ========================================
+      # 7. Report Status & Complexity Analysis
       # ========================================
       - name: Report Scan Results
         if: always()
@@ -117,5 +149,21 @@ jobs:
           echo "| Terraform Init | ${{ steps.init.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Terraform Validate | ${{ steps.validate.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| SonarCloud Quality Gate | ${{ steps.sonarcloud-quality-gate.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📊 Code Complexity Analysis (Cyclomatic Complexity)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Formula**: V(G) = E - N + 2" >> $GITHUB_STEP_SUMMARY
+          echo "- V(G) = Cyclomatic Complexity" >> $GITHUB_STEP_SUMMARY
+          echo "- E = Total jumlah edge (aliran kontrol)" >> $GITHUB_STEP_SUMMARY
+          echo "- N = Total jumlah node (blok kode)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value | Description |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Cyclomatic Complexity** | ${{ steps.sonar-metrics.outputs.complexity }} | Kompleksitas struktural kode |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Cognitive Complexity** | ${{ steps.sonar-metrics.outputs.cognitive_complexity }} | Kompleksitas pemahaman kode |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Bugs** | ${{ steps.sonar-metrics.outputs.bugs }} | Jumlah bug terdeteksi |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Vulnerabilities** | ${{ steps.sonar-metrics.outputs.vulnerabilities }} | Kerentanan keamanan |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Code Smells** | ${{ steps.sonar-metrics.outputs.code_smells }} | Masalah maintainability |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 [View detailed report on SonarCloud](https://sonarcloud.io/dashboard?id=${{ secrets.SONAR_PROJECT_KEY }})" >> $GITHUB_STEP_SUMMARY
